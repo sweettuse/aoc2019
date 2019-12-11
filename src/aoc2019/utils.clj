@@ -14,3 +14,8 @@
   "convert iterable of strings to ints"
   (map #(Integer/parseInt %) strs)
   )
+
+(defn py-count
+  ([] (py-count 0))
+  ([n] (lazy-seq (cons n (py-count (inc n)))))
+  )

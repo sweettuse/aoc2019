@@ -27,11 +27,9 @@
   "problem 1"
   (reduce +
           (map (comp calc-fuel #(Integer/parseInt %))
-               (U/read-file "01-a"))
-          )
+               (U/read-file "01-a")))
   )
-;(print (calc-fuel 1969))
-;(print (Integer/parseInt (first (U/read-file "01-a"))))
+
 (println (= (aoc1-a) (aoc1-a-2)))
 
 (defn calc-fuel2 [mass]
@@ -41,8 +39,8 @@
     (let [mass (calc-fuel mass)]
       (if (<= mass 0)
         acc
-        (recur mass (+ acc mass))
-        ))
+        (recur mass (+ acc mass)))
+      )
     )
   )
 

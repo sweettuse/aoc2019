@@ -1,5 +1,5 @@
 (ns aoc2019.02
-  (:require [aoc2019.intcode :as ic]))
+  (:require [aoc2019.intcode2 :as ic]))
 
 (defn aoc2-b [opcodes]
   (first
