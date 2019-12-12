@@ -52,9 +52,14 @@
     )
   )
 
+(def output-reg (atom nil))
+
 (defn- oc-output [instructions idxs param-modes]
   "read and display value from instructions"
-  (println (read-val instructions (first idxs) (first param-modes)))
+  (let [res (read-val instructions (first idxs) (first param-modes))]
+    (println res)
+    (reset! output-reg res)
+    )
   (Output
     (inc (last idxs))
     instructions
@@ -89,7 +94,7 @@
 ; ======================================================================================================================
 
 
-(defn- parse-data [data]
+(defn parse-data [data]
   "transform a string of 'int,int,int,int' into actual ints"
   (vec (U/to-ints (str/split data #","))))
 
@@ -147,6 +152,6 @@
     (process data [2987]))
   )
 
-(println (test-run))
+;(println (test-run))
 
 
