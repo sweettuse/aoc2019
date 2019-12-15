@@ -2,10 +2,19 @@
   (:require [aoc2019.utils :as U]
             [clojure.string :as str]))
 
+(def output-reg (atom nil))
+(def relative-base (atom nil))
+
 (defn- read-val
   ([instructions idx] (read-val instructions idx 0))
   ([instructions idx mode]
-   ((if (zero? mode) instructions identity) (instructions idx)))
+   (let [f (case mode
+             0 instructions
+             1 identity
+             2 (comp instructions (partial + @relative-base)))]
+     (println "rv" idx mode @relative-base instructions)
+     (f (instructions idx)))
+   )
   )
 
 (defn write-val [instructions idx value]
@@ -19,8 +28,12 @@
   )
 
 
-(defn Output [program-counter instructions]
-  [program-counter instructions])
+(defn Output
+  ([program-counter instructions] (Output program-counter instructions :na))
+  ([program-counter instructions reason] [program-counter instructions reason])
+  )
+
+
 
 
 ; ======================================================================================================================
@@ -45,32 +58,24 @@
 (defn- oc-input [instructions idxs inputs]
   "take user-provided input and write to instructions"
   (let [target-idx (instructions (first idxs))]
-    (Output
-      (inc (last idxs))
-      (write-val instructions target-idx (first inputs))
-      )
+    (Output (inc (last idxs)) (write-val instructions target-idx (first inputs)))
     )
   )
-
-(def output-reg (atom nil))
 
 (defn- oc-output [instructions idxs param-modes]
   "read and display value from instructions"
   (let [res (read-val instructions (first idxs) (first param-modes))]
-    (println res)
+    (println "out" res)
     (reset! output-reg res)
     )
-  (Output
-    (inc (last idxs))
-    instructions
-    )
+  (Output (inc (last idxs)) instructions)
   )
 
 (defn- oc-jump [cmp instructions idxs param-modes]
   "conditional jump"
   (let [[to-compare target-idx] (get-args instructions idxs param-modes)
         pc (if (cmp to-compare) target-idx (inc (last idxs)))]
-    [pc instructions]
+    (Output pc instructions)
     )
   )
 
@@ -79,6 +84,14 @@
     (if (apply cmp args) 1 0))
   )
 
+(defn- oc-relative-base [instructions idxs param-modes]
+  "read and display value from instructions"
+  (let [res (read-val instructions (first idxs) (first param-modes))]
+    (println "base change" res)
+    (swap! relative-base (partial + res))
+    )
+  (Output (inc (last idxs)) instructions)
+  )
 
 (def opcodes
   {1 {:meta "add" :func (partial oc-run-and-write +) :arity 3}
@@ -89,6 +102,7 @@
    6 {:meta "jump-if-zero" :func (partial oc-jump zero?) :arity 2 :param-mode-override identity}
    7 {:meta "less than" :func (partial oc-run-and-write (oc-comp <)) :arity 3}
    8 {:meta "equal" :func (partial oc-run-and-write (oc-comp =)) :arity 3}
+   9 {:meta "relative-base" :func oc-relative-base :arity 1}
    }
   )
 ; ======================================================================================================================
@@ -96,22 +110,22 @@
 
 (defn parse-data [data]
   "transform a string of 'int,int,int,int' into actual ints"
-  (vec (U/to-ints (str/split data #","))))
+  (vec (map bigint (str/split data #","))))
 
 (defn parse-file [fn]
   "read data from file and parse to ints"
   (parse-data (first (U/read-file fn))))
 
 
-(defn- parse-opcode [^Integer code]
+(defn- parse-opcode [code]
   "of the form [pm2 pm1 pm0 opcode-digit-0 opcode-digit-1]
 
   return [instruction, (pm0, pm1, pm2)]
   "
-  (let [s (format "%05d" code)
+  (let [s (format "%05d" (biginteger code))
         opcode (opcodes (mod code 100))]
     [opcode,
-     (vec (take (:arity opcode) (reverse (U/to-ints (map str (take 3 s))))))]
+     (vec (take (:arity opcode) (reverse (map bigint (map str (take 3 s))))))]
     )
   )
 
@@ -123,13 +137,14 @@
   )
 
 (defn process
-  ([instructions] (process instructions []))
-  ([instructions inputs]
-   (loop [pc 0
+  ([instructions] (process instructions [] 0 false))
+  ([instructions inputs] (process instructions inputs 0 false))
+  ([instructions inputs pc break-on-output]
+   (loop [pc pc
           instructions instructions
           inputs inputs]
      (if (or (>= pc (count instructions)) (= (instructions pc) 99))
-       instructions
+       (Output pc instructions :halt)
        (let [int-code (instructions pc)
              [opcode param-modes] (parse-opcode int-code)
              param-modes ((:param-mode-override opcode make-last-pm-immediate) param-modes)
@@ -139,7 +154,10 @@
            (let [[pc instructions] (oc-input instructions idxs inputs)]
              (recur pc instructions (rest inputs)))
            (let [[pc instructions] ((:func opcode) instructions idxs param-modes)]
-             (recur pc instructions inputs)))
+             (if (and break-on-output (= 4 int-code))
+               (Output pc instructions :break)
+               (recur pc instructions inputs)))
+           )
          )
        ))))
 

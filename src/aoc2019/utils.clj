@@ -1,7 +1,7 @@
 (ns aoc2019.utils)
 
 (def sum #(reduce + %))
-(def input-path "/Users/acushner/software/aoc2019/inputs/")
+(def input-path "/Users/acushner/software/clj/aoc2019/inputs/")
 (defn read-file
   "return list[str] of lines of file"
   ([fn] (read-file fn input-path))
@@ -18,4 +18,16 @@
 (defn py-count
   ([] (py-count 0))
   ([n] (lazy-seq (cons n (py-count (inc n)))))
+  )
+
+
+
+(defn chunks [data chunk-size]
+  (loop [data data
+         out []]
+    (if (empty? data)
+      out
+      (recur (drop chunk-size data) (conj out (take chunk-size data)))
+      )
+    )
   )
