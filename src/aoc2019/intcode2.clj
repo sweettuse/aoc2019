@@ -34,8 +34,6 @@
   )
 
 
-
-
 ; ======================================================================================================================
 ; OPCODE HANDLERS
 ; ======================================================================================================================
@@ -50,6 +48,7 @@
         [args out-idx] [(butlast vals) (last vals)]]
     (Output
       (inc (last idxs))
+      (println out-idx f args)
       (write-val instructions out-idx (apply f args))
       )
     )
@@ -110,7 +109,9 @@
 
 (defn parse-data [data]
   "transform a string of 'int,int,int,int' into actual ints"
-  (vec (map bigint (str/split data #","))))
+  (let [res (vec (map bigint (str/split data #",")))]
+    (into res (take 200 (repeat nil))))
+  )
 
 (defn parse-file [fn]
   "read data from file and parse to ints"
