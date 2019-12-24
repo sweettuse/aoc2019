@@ -50,11 +50,7 @@
                            :let [res (to-count-args (inc n-parents) c)]]
                        res)
             args-vec (concat (rest args-vec) new-args)]
-        (recur acc args-vec)
-        )
-      )
-    )
-  )
+        (recur acc args-vec)))))
 
 (defn aoc6-a [filename]
   (get-counts-args (parse-file filename) [(to-count-args 0 :COM)])
