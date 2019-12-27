@@ -34,3 +34,6 @@
       )
     )
   )
+
+(defn select-values [m & keys]
+  (vals (select-keys keys m)))

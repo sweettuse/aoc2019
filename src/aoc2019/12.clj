@@ -12,12 +12,25 @@
             [name val]))))
 
 
+
+(defn init-system-vel [data]
+  "set :vel to all zeroes"
+  (reduce (fn [acc k]
+            (let [pos-vel (k data)
+                  pos-keys (keys (:pos pos-vel))
+                  vel (zipmap pos-keys (repeat 0))]
+              (assoc acc k (assoc pos-vel :vel vel))))
+          {}
+          (keys data)))
+
+
 (defn parse-data [data]
-  (into {}
-        (for [[name row] (map vector "ABCDE" data)
-              :let [pos (parse-row row)
-                    vel (apply hash-map (interleave (keys pos) (repeat 0)))]]
-          {(keyword (str name)) {:pos pos :vel vel}})))
+  (init-system-vel
+    (into {}
+          (for [[name row] (map vector "ABCDE" data)
+                :let [pos (parse-row row)]]
+            ;{(keyword (str name)) (init-vel {:pos pos})})))
+            {(keyword (str name)) {:pos pos}}))))
 
 
 (defn parse-file
@@ -27,11 +40,9 @@
 
 (defn- update-velocity [m1 m2]
   "account for gravity and update velocity"
-  (println m1 m2)
   (loop [m1 m1
          m2 m2
          ks (keys (:pos m1))]
-    (println ks)
     (if (empty? ks)
       m1
       (let [[k & ks] ks
@@ -41,33 +52,53 @@
         (recur (update-in m1 [:vel k] update-f) m2 ks)))))
 
 
-(defn update-system-position [m]
+(defn update-system-position [data]
   "take mass with :pos and :vel and update position"
-  (assoc m :pos (apply merge-with + (vals m))))
+  (into {}
+        (for [k (keys data)
+              :let [cur (k data)]]
+          {k (assoc cur :pos (apply merge-with + (vals cur)))})))
 
 
-(defn update-system-velocity
-  ([] (update-system-velocity (parse-file)))
+(defn update-system
+  ([] (update-system (parse-file)))
   ([data]
-   (loop [[[k1 k2] & ks] (combo/combinations (keys data) 2)
+   (loop [[[k1 k2] & ks] (combo/permutations (keys data) 2)
           data data]
      (if (empty? ks)
-       ; some sort of reduce here to update the positions appropriately based on velocities
-       data
+       (update-system-position data)
        (recur ks (assoc data k1 (update-velocity (k1 data) (k2 data))))))))
 
 
-(def data (parse-file))
-(println (keys data))
-(def m1 (:A data))
-(def m2 (:B data))
-(println (update-velocity m1 m2))
-(println m1)
-(def res (update-system-velocity (parse-file "12.test")))
-(println (:A res))
-(println (apply merge-with + (vals (:A res))))
+(defn calc-total-energy [data]
+  (letfn [(calc-energy [pv]
+            ;2
+            ;(println pv)
+            (U/sum (map #(Math/abs %) (vals pv)))
+            )
+          (total [moon]
+            (println "moon" moon)
+            ;(println (U/select-values moon :pos :vel))
+            )]
+    ;(reduce * (map calc-energy (U/select-values moon :pos :vel))))]
+    (map total (vals data))))
+;(U/sum (map total data))))
+
+(def data (parse-file "12.test"))
+;(def initted (init-system-vel data))
+(def updated (update-system data))
+(println updated)
+(println (calc-total-energy updated))
+;(println (keys data))
+;(def m1 (:A data))
+;(def m2 (:B data))
+;(println (update-velocity m1 m2))
+;(println m1)
+;(def res (update-system (parse-file "12.test")))
+;(println res)
+;(println "really" (:A res))
 
 
-  ;(println (first (keys (first data))))
+;(println (first (keys (first data))))
 
 
