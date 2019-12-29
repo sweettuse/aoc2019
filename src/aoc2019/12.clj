@@ -3,6 +3,7 @@
             [clojure.string :as str]
             [clojure.math.combinatorics :as combo]))
 
+
 (defn parse-row [row]
   (let [stripped (str/replace row #"[<>,=]" "")]
     (into {}
@@ -12,93 +13,107 @@
             [name val]))))
 
 
-
 (defn init-system-vel [data]
-  "set :vel to all zeroes"
-  (reduce (fn [acc k]
-            (let [pos-vel (k data)
-                  pos-keys (keys (:pos pos-vel))
-                  vel (zipmap pos-keys (repeat 0))]
-              (assoc acc k (assoc pos-vel :vel vel))))
-          {}
-          (keys data)))
+  "add {:x 0 :y 0 :z 0} as initial velocity"
+  (into {}
+        (for [pos data
+              :let [vel (zipmap (keys pos) (repeat 0))]]
+          [pos vel])))
 
 
 (defn parse-data [data]
-  (init-system-vel
-    (into {}
-          (for [[name row] (map vector "ABCDE" data)
-                :let [pos (parse-row row)]]
-            ;{(keyword (str name)) (init-vel {:pos pos})})))
-            {(keyword (str name)) {:pos pos}}))))
+  (map parse-row data))
 
 
 (defn parse-file
   ([] (parse-file "12"))
-  ([fn] (parse-data (U/read-file fn))))
+  ([fn] (init-system-vel (parse-data (U/read-file fn)))))
 
 
-(defn- update-velocity [m1 m2]
-  "account for gravity and update velocity"
-  (loop [m1 m1
-         m2 m2
-         ks (keys (:pos m1))]
-    (if (empty? ks)
-      m1
-      (let [[k & ks] ks
-            m1p (k (:pos m1))
-            m2p (k (:pos m2))
-            update-f (if (< m1p m2p) inc dec)]
-        (recur (update-in m1 [:vel k] update-f) m2 ks)))))
+(defn- -get-update-func [v1 v2]
+  (if (= v1 v2)
+    identity
+    (if (< v1 v2) inc dec)))
 
+
+(defn- get-velocity-offset [p1 p2]
+  "account for gravity and update velocity
+
+  m1 and m2 are [pos vel] key-value vectors"
+
+  (let [coord-keys (keys p1)]
+    (reduce
+      (fn [acc k]
+        (update acc k (-get-update-func (k p1) (k p2))))
+      (zipmap coord-keys (repeat 0))
+      coord-keys)))
 
 (defn update-system-position [data]
-  "take mass with :pos and :vel and update position"
   (into {}
-        (for [k (keys data)
-              :let [cur (k data)]]
-          {k (assoc cur :pos (apply merge-with + (vals cur)))})))
-
+        (for [[k v] data]
+          [(merge-with + k v) v])))
 
 (defn update-system
-  ([] (update-system (parse-file)))
   ([data]
-   (loop [[[k1 k2] & ks] (combo/permutations (keys data) 2)
+   (loop [combos (combo/combinations (keys data) 2)
           data data]
-     (if (empty? ks)
+     ; data at this point looks like {pos1 vel1, pos2 vel2}
+     (if (empty? combos)
        (update-system-position data)
-       (recur ks (assoc data k1 (update-velocity (k1 data) (k2 data))))))))
+       (let [[[p1 p2] & ks] combos
+             offset (get-velocity-offset p1 p2)
+             v1 (merge-with + (data p1) offset)
+             v2 (merge-with - (data p2) offset)]
+         (recur ks (assoc data p1 v1 p2 v2)))))))
 
 
 (defn calc-total-energy [data]
-  (letfn [(calc-energy [pv]
-            ;2
-            ;(println pv)
-            (U/sum (map #(Math/abs %) (vals pv)))
-            )
-          (total [moon]
-            (println "moon" moon)
-            ;(println (U/select-values moon :pos :vel))
-            )]
-    ;(reduce * (map calc-energy (U/select-values moon :pos :vel))))]
-    (map total (vals data))))
-;(U/sum (map total data))))
-
-(def data (parse-file "12.test"))
-;(def initted (init-system-vel data))
-(def updated (update-system data))
-(println updated)
-(println (calc-total-energy updated))
-;(println (keys data))
-;(def m1 (:A data))
-;(def m2 (:B data))
-;(println (update-velocity m1 m2))
-;(println m1)
-;(def res (update-system (parse-file "12.test")))
-;(println res)
-;(println "really" (:A res))
+  (println data)
+  (letfn [(sum-vals [xyz]
+            (reduce + (map #(Math/abs %) (vals xyz))))]
+    (apply +
+           (for [[p v] (map vector (keys data) (vals data))]
+             (* (sum-vals p) (sum-vals v))))))
 
 
-;(println (first (keys (first data))))
+(defn aoc12-a [n data]
+  (loop [n n
+         data data]
+    (if (<= n 0)
+      (calc-total-energy data)
+      (recur (dec n) (update-system data)))))
 
 
+(defn- by-dimension [data]
+  (let [data (flatten (seq data))]
+    (into {} (for [dim [:x :y :z]] [dim (map dim data)]))))
+
+
+(defn- process-dimensions [data seen done]
+  (let [data (by-dimension data)]
+    (loop [[dim & dims] (keys seen)
+           seen seen
+           done done]
+      (if (not dim)
+        [seen done]
+        (let [cur-seen (dim seen)
+              cur-data (dim data)]
+          (if (contains? cur-seen cur-data)
+            (recur dims (dissoc seen dim) (assoc done dim cur-seen))
+            (recur dims (assoc seen dim (conj cur-seen cur-data)) done)))))))
+
+
+(defn aoc12-b [data]
+  "find period of each axis and then find the lcm of that"
+  (loop [data data
+         seen (zipmap [:x :y :z] (repeat #{}))
+         done {}]
+    (let [[seen done] (process-dimensions data seen done)]
+      (if (empty? seen)
+        (reduce U/lcm (map count (vals done)))
+        (recur (update-system data) seen done)))))
+
+
+(def data (parse-file "12"))
+(println (aoc12-a 1000 data))
+(println (aoc12-b data))
