@@ -6,19 +6,12 @@
   "return list[str] of lines of file"
   ([fn] (read-file fn input-path))
   ([fn path]
-   (clojure.string/split-lines (slurp (str path fn)))
-   )
-  )
+   (clojure.string/split-lines (slurp (str path fn)))))
 
 (defn to-ints [strs]
   "convert iterable of strings to ints"
-  (map #(Integer/parseInt %) strs)
-  )
+  (map #(Integer/parseInt %) strs))
 
-;(defn py-count
-;  ([] (py-count 0))
-;  ([n] (lazy-seq (cons n (py-count (inc n)))))
-;  )
 
 (defn py-count
   ([] (py-count 0))
@@ -30,10 +23,7 @@
          out []]
     (if (empty? data)
       out
-      (recur (drop chunk-size data) (conj out (take chunk-size data)))
-      )
-    )
-  )
+      (recur (drop chunk-size data) (conj out (take chunk-size data))))))
 
 (defn select-values [m & keys]
   (vals (select-keys keys m)))
@@ -44,6 +34,7 @@
   (if (zero? b)
     a
     (recur b, (mod a b))))
+
 
 (defn lcm
   [a b]
